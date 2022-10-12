@@ -12,8 +12,10 @@ import java.util.concurrent.*;
 
 public class RDT {
 
-	public static final int MSS = 100; // Max segment size in bytes
-	public static final int RTO = 500; // Retransmission Timeout in msec
+	public static final int MSS = 100; 	// Max segment size in bytes
+	public static final int RTO = 500; 	// Retransmission Timeout in msec
+	public static final int STO = 1000;	// Socket Timeout in msec
+
 	public static final int ERROR = -1;
 	public static final int MAX_BUF_SIZE = 3;  
 	public static final int GBN = 1;   // Go back N protocol
@@ -37,39 +39,30 @@ public class RDT {
 	
 	RDT (String dst_hostname_, int dst_port_, int local_port_) 
 	{
-		local_port = local_port_;
-		dst_port = dst_port_; 
-		try {
-			 socket = new DatagramSocket(local_port);
-			 dst_ip = InetAddress.getByName(dst_hostname_);
-		 } catch (IOException e) {
-			 System.out.println("RDT constructor: " + e);
-		 }
-		sndBuf = new RDTBuffer(MAX_BUF_SIZE);
-		if (protocol == GBN)
-			rcvBuf = new RDTBuffer(1);
-		else 
-			rcvBuf = new RDTBuffer(MAX_BUF_SIZE);
-		rcvThread = new ReceiverThread(rcvBuf, sndBuf, socket, dst_ip, dst_port);
-		rcvThread.start();
+		rdtInit(dst_hostname_, dst_port_, local_port_, MAX_BUF_SIZE, MAX_BUF_SIZE);
 	}
 	
 	RDT (String dst_hostname_, int dst_port_, int local_port_, int sndBufSize, int rcvBufSize)
 	{
+		rdtInit(dst_hostname_, dst_port_, local_port_, sndBufSize, rcvBufSize);
+	}
+
+	private void rdtInit(String dst_hostname_, int dst_port_, int local_port_, int sndBufSize, int rcvBufSize) {
 		local_port = local_port_;
 		dst_port = dst_port_;
-		 try {
-			 socket = new DatagramSocket(local_port);
-			 dst_ip = InetAddress.getByName(dst_hostname_);
-		 } catch (IOException e) {
-			 System.out.println("RDT constructor: " + e);
-		 }
+		try {
+			socket = new DatagramSocket(local_port);
+			socket.setSoTimeout(STO);
+			dst_ip = InetAddress.getByName(dst_hostname_);
+		} catch (IOException e) {
+			System.out.println("RDT constructor: " + e);
+		}
 		sndBuf = new RDTBuffer(sndBufSize);
 		if (protocol == GBN)
 			rcvBuf = new RDTBuffer(1);
-		else 
+		else
 			rcvBuf = new RDTBuffer(rcvBufSize);
-		
+
 		rcvThread = new ReceiverThread(rcvBuf, sndBuf, socket, dst_ip, dst_port);
 		rcvThread.start();
 	}
@@ -81,40 +74,56 @@ public class RDT {
 	public int send(byte[] data, int size) {
 		
 		//****** complete
-		
-		// divide data into segments
-		// put each segment into sndBuf
 
-		// if size < MSS, only copy that amount of data
-		int data_length = size < MSS ? size : MSS;
+		// * divide data into segments
+		int num_segments = (int) Math.ceil((double)size/(double)MSS);
 
+		// * put each segment into sndBuf
+
+		int data_length;
 		int count = 0;
-		while (count < size) {
+		//while (count < size) {
+		for (int j=0; j<num_segments; j++) {
+			System.out.println("count: " + count);
+			data_length = (size-count) < MSS ? (size-count) : MSS;	// if size < MSS, only copy that amount of data
+
 			// Create segment
 			RDTSegment seg = new RDTSegment();
-			seg.seqNum = count;
-			seg.ackNum = count;
+			seg.seqNum = j;
+			seg.ackNum = j;
+			seg.rcvWin = 0;
 			seg.flags = 0;
+			seg.length = data_length;
 
 			// Copy the data
 			for (int i=0; i<data_length; i++) {
 				seg.data[i] = data[i];
 			}
-			count += size;
+			count += data_length;
 
-			// Specify rest of segment header
-			seg.length = RDTSegment.HEADER_LENGTH + data_length;
+			// Calculate checksum
 			seg.checksum = seg.computeChecksum();
 
 			// Add the segment to the sndBuf
+			System.out.println("Putting seqNum " + seg.seqNum + " in sndBuf");
 			sndBuf.putNext(seg);
 		}
-		
+
 		// send using udp_send()
+		int i=0;
+		RDTSegment seg = sndBuf.getSegAt(i);
+		while(seg != null) {
+			// Send the segment
+			Utility.udp_send(seg, socket, dst_ip, dst_port);
+
+			// Next segment
+			i++;
+			seg = sndBuf.getSegAt(i);
+		}
 		
 		// schedule timeout for segment(s) 
 			
-		return size;
+		return count;
 	}
 	
 	
@@ -132,6 +141,8 @@ public class RDT {
 	public void close() {
 		// OPTIONAL: close the connection gracefully
 		// you can use TCP-style connection termination process
+		rcvThread.stopReceiving();
+		rcvThread.interrupt();
 	}
 	
 }  // end RDT class 
@@ -175,10 +186,39 @@ class RDTBuffer {
 	
 	// return the next in-order segment
 	public RDTSegment getNext() {
-		
-		// **** Complete
-		
-		return null;  // fix 
+		RDTSegment seg = null;
+
+		if (base != next) {
+			System.out.println("base: " + base + ", next: " + next);
+			// **** Complete
+			try {
+				semMutex.acquire();
+				seg = buf[base%size];
+				semMutex.release();
+			} catch(InterruptedException e) {
+				System.out.println("Buffer put(): " + e);
+			}
+		}
+
+		return seg;
+	}
+
+	// Return the segment at the index, where 0 is the lowest segment number not ACKed.
+	public RDTSegment getSegAt(int index) {
+		RDTSegment seg = null;
+		int q_idx = base + index;
+
+		if (q_idx != next) {
+			try {
+				semMutex.acquire();
+				seg = buf[q_idx];
+				semMutex.release();
+			} catch (InterruptedException e) {
+				System.out.println("Buffer put(): " + e);
+			}
+		}
+
+		return seg;
 	}
 	
 	// Put a segment in the *right* slot based on seg.seqNum
@@ -203,6 +243,7 @@ class ReceiverThread extends Thread {
 	DatagramSocket socket;
 	InetAddress dst_ip;
 	int dst_port;
+	boolean endLoop;
 	
 	ReceiverThread (RDTBuffer rcv_buf, RDTBuffer snd_buf, DatagramSocket s, 
 			InetAddress dst_ip_, int dst_port_) {
@@ -211,6 +252,7 @@ class ReceiverThread extends Thread {
 		socket = s;
 		dst_ip = dst_ip_;
 		dst_port = dst_port_;
+		endLoop = false;
 	}	
 	public void run() {
 		
@@ -223,9 +265,46 @@ class ReceiverThread extends Thread {
 		//                if seg contains data, put the data in rcvBuf and do any necessary 
 		//                             stuff (e.g, send ACK)
 		//
+
+		while(!endLoop) {
+
+			// Make packet to receive data
+			byte[] buf = new byte[RDT.MSS];
+			DatagramPacket packetReceived = new DatagramPacket(buf, RDT.MSS);
+
+			// Receive data
+			try {
+				System.out.println("- Calling receive()");
+				socket.receive(packetReceived);
+			} catch (SocketTimeoutException sto) {
+				System.out.println("-- RECEIVE LOOP Socket Timeout: " + sto);
+
+				// Check for an interrupt
+				if(Thread.currentThread().isInterrupted()) {
+					System.out.println("- Thread interrupted: return to top of loop");
+					System.out.println("- endLoop: " + endLoop);
+					continue;
+				}
+			} catch (IOException e) {
+				System.out.println("-- RECEIVE LOOP IOException: " + e);
+			}
+
+			System.out.println("-- RECEIVE LOOP end");
+		} // End rcvThread while loop
+
+		System.out.println("--- RECEIVE LOOP exit");
+
+		// Initiate graceful shutdown here
+
+		System.out.println("---- RECEIVE THREAD exit");
+		return;
 	}
-	
-	
+
+	public void stopReceiving() {
+		System.out.println("--- stopReceiving()");
+		endLoop = true;
+	}
+
 //	 create a segment from received bytes 
 	void makeSegment(RDTSegment seg, byte[] payload) {
 	
