@@ -16,7 +16,7 @@ class TimeoutHandler extends TimerTask {
 	InetAddress ip;
 	int port;
 	
-	TimeoutHandler (RDTBuffer sndBuf_, RDTSegment s, DatagramSocket sock, 
+	TimeoutHandler (RDTBuffer sndBuf_, RDTSegment s, DatagramSocket sock,
 			InetAddress ip_addr, int p) {
 		sndBuf = sndBuf_;
 		seg = s;
@@ -33,7 +33,31 @@ class TimeoutHandler extends TimerTask {
 		// complete 
 		switch(RDT.protocol){
 			case RDT.GBN:
-				
+				TimeoutHandler timeout;
+				RDTSegment seg;
+				int i=0;
+
+				// While we still have segments to send
+				seg = sndBuf.getSegAt(i);
+				while (seg != null) {
+					// Send the segment
+					Utility.udp_send(seg, socket, ip, port);
+
+					// For the first segment, create a new timer
+					if (i == 0) {
+						timeout = new TimeoutHandler(sndBuf, seg, socket, ip, port);
+						seg.timeoutHandler = timeout;
+
+						// Schedule the timer
+						RDT.timer.schedule(timeout, RDT.RTO);
+					}
+
+					// Next segment
+					i++;
+					System.out.println("Timeout: i=" + i);
+					seg = sndBuf.getSegAt(i);
+				}
+
 				break;
 			case RDT.SR:
 				

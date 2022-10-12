@@ -22,6 +22,9 @@ public class TestClient {
 	         System.out.println("Required arguments: dst_hostname dst_port local_port");
 	         return;
 	      }
+
+		System.out.println("CLIENT");
+
 		 String hostname = args[0];
 	     int dst_port = Integer.parseInt(args[1]);
 	     int local_port = Integer.parseInt(args[2]);
@@ -31,27 +34,32 @@ public class TestClient {
 	  
 	     byte[] buf = new byte[RDT.MSS];
 	     byte[] data = new byte[10];
+
+		 System.out.println("Sending 0...");
 	     for (int i=0; i<10; i++)
 	    	 data[i] = 0;
 	     rdt.send(data, 10);
-	     
-	     for (int i=0; i<10; i++)
-	    	 data[i] = 1;
-	     rdt.send(data, 10);
-	     
-	     for (int i=0; i<10; i++)
-	    	 data[i] = 2;
-	     rdt.send(data, 10);
-	     
-	     for (int i=0; i<10; i++)
-	    	 data[i] = 3;
-	     rdt.send(data, 10);
 
-	     for (int i=0; i<10; i++)
-	    	 data[i] = 4;
-	     rdt.send(data, 10);
-	 
-	     
+//		System.out.println("Sending 1...");
+//	     for (int i=0; i<10; i++)
+//	    	 data[i] = 1;
+//	     rdt.send(data, 10);
+//
+//		System.out.println("Sending 2...");
+//	     for (int i=0; i<10; i++)
+//	    	 data[i] = 2;
+//	     rdt.send(data, 10);
+//
+//		System.out.println("Sending 3...");
+//	     for (int i=0; i<10; i++)
+//	    	 data[i] = 3;
+//	     rdt.send(data, 10);
+//
+//		System.out.println("Sending 4...");
+//	     for (int i=0; i<10; i++)
+//	    	 data[i] = 4;
+//	     rdt.send(data, 10);
+
 	     System.out.println(System.currentTimeMillis() + ":Client has sent all data " );
 	     System.out.flush();
 	     

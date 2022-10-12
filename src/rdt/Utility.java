@@ -22,7 +22,7 @@ public class Utility {
 	        return;
 	    }
 		// prepare UDP payload 
-		int payloadSize = seg.length + RDTSegment.HDR_SIZE;
+		int payloadSize = seg.length + RDTSegment.HEADER_SIZE;
 		byte[] payload = new byte[payloadSize];
 		seg.makePayload(payload);
 	

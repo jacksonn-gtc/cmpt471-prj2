@@ -11,7 +11,7 @@ public class RDTSegment {
 	public int ackNum;
 	public int flags;
 	public int checksum; 
-	public int rcvWin;
+	public int rcvWin;	// unused in this assignment?
 	public int length;  // number of data bytes (<= MSS)
 	public byte[] data;
 
@@ -27,10 +27,9 @@ public class RDTSegment {
 	public static final int CHECKSUM_OFFSET = 12;
 	public static final int RCV_WIN_OFFSET = 16;
 	public static final int LENGTH_OFFSET = 20;
-	public static final int HDR_SIZE = 24; 
-	public static final int FLAGS_ACK = 1;
 
-	public static final int HEADER_LENGTH = 32;
+	public static final int HEADER_SIZE = 24;
+	public static final int FLAGS_ACK = 1;
 
 	RDTSegment() {
 		data = new byte[RDT.MSS];
@@ -45,7 +44,7 @@ public class RDTSegment {
 	
 	public boolean containsAck() {
 		// complete
-		return true;
+		return flags == FLAGS_ACK;
 	}
 	
 	public boolean containsData() {
@@ -73,7 +72,7 @@ public class RDTSegment {
 		Utility.intToByte(length, payload, LENGTH_OFFSET);
 		//add data
 		for (int i=0; i<length; i++)
-			payload[i+HDR_SIZE] = data[i];
+			payload[i+ HEADER_SIZE] = data[i];
 	}
 	
 	public void printHeader() {
