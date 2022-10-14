@@ -84,7 +84,7 @@ public class RDT {
 		int count = 0;
 		//while (count < size) {
 		for (int j=0; j<num_segments; j++) {
-			PrintHandler.printOnLevel(2,"count: " + count);
+			PrintHandler.printOnLevel(3,"count: " + count);
 			data_length = (size-count) < MSS ? (size-count) : MSS;	// if size < MSS, only copy that amount of data
 
 			// Create segment
@@ -105,20 +105,24 @@ public class RDT {
 			seg.checksum = seg.computeChecksum();
 
 			// Add the segment to the sndBuf
-			PrintHandler.printOnLevel(2,"Putting seqNum " + seg.seqNum + " in sndBuf");
+			PrintHandler.printOnLevel(3,"Putting seqNum " + seg.seqNum + " in sndBuf");
 			sndBuf.putNext(seg);
 		}
 
+		PrintHandler.printOnLevel(3,"RDTBuffer contains " + sndBuf.next + " segments");
+
 		// send using udp_send()
+		RDTSegment seg = sndBuf.getNext();
+
 		int i=0;
-		RDTSegment seg = sndBuf.getSegAt(i);
-		while(seg != null) {
+		while(seg != null && i < num_segments) {
 			// Send the segment
 			Utility.udp_send(seg, socket, dst_ip, dst_port);
 
 			// Next segment
 			i++;
 			seg = sndBuf.getSegAt(i);
+			PrintHandler.printOnLevel(3, "----- i: " + i);
 		}
 		
 		// schedule timeout for segment(s) 
@@ -180,7 +184,7 @@ class RDTBuffer {
 			semMutex.release();
 			semFull.release(); // increase #of full slots
 		} catch(InterruptedException e) {
-			System.out.println("Buffer put(): " + e);
+			System.out.println("putNext: " + e);
 		}
 	}
 	
@@ -189,14 +193,14 @@ class RDTBuffer {
 		RDTSegment seg = null;
 
 		if (base != next) {
-			PrintHandler.printOnLevel(2,"base: " + base + ", next: " + next);
+			PrintHandler.printOnLevel(3,"base: " + base + ", next: " + next);
 			// **** Complete
 			try {
 				semMutex.acquire();
 				seg = buf[base%size];
 				semMutex.release();
 			} catch(InterruptedException e) {
-				System.out.println("Buffer put(): " + e);
+				System.out.println("getNext: " + e);
 			}
 		}
 
@@ -208,13 +212,15 @@ class RDTBuffer {
 		RDTSegment seg = null;
 		int q_idx = base + index;
 
+		PrintHandler.printOnLevel(3, "q_idx: " + q_idx + ", next: " + next);
+
 		if (q_idx != next) {
 			try {
 				semMutex.acquire();
-				seg = buf[q_idx];
+				seg = buf[q_idx%size];
 				semMutex.release();
 			} catch (InterruptedException e) {
-				System.out.println("Buffer put(): " + e);
+				System.out.println("getSegAt: " + e);
 			}
 		}
 
@@ -226,6 +232,19 @@ class RDTBuffer {
 	public void putSeqNum (RDTSegment seg) {
 		// ***** compelte
 
+	}
+
+	// Slides the window according to the segment ACK
+	public void slideWindowACK(RDTSegment seg) {
+		try {
+			semFull.acquire();
+			semMutex.acquire();
+			base = seg.ackNum+1;
+			semMutex.release();
+			semEmpty.release();
+		} catch (InterruptedException e) {
+			System.out.println("slideWindowACK: " + e);
+		}
 	}
 	
 	// for debugging
@@ -274,29 +293,67 @@ class ReceiverThread extends Thread {
 
 			// Receive data
 			try {
-				PrintHandler.printOnLevel(2,"- Calling receive()");
+				PrintHandler.printOnLevel(3,"- Calling receive()");
 				socket.receive(packetReceived);
 			} catch (SocketTimeoutException sto) {
-				PrintHandler.printOnLevel(2,"-- RECEIVE LOOP Socket Timeout: " + sto);
+				PrintHandler.printOnLevel(3,"-- RECEIVE LOOP Socket Timeout: " + sto);
 
 				// Check for an interrupt
 				if(Thread.currentThread().isInterrupted()) {
-					PrintHandler.printOnLevel(2,"- Thread interrupted: return to top of loop");
-					PrintHandler.printOnLevel(2,"- endLoop: " + endLoop);
+					PrintHandler.printOnLevel(3,"- Thread interrupted: return to top of loop");
+					PrintHandler.printOnLevel(3,"- endLoop: " + endLoop);
 					continue;
 				}
 			} catch (IOException e) {
 				System.out.println("-- RECEIVE LOOP IOException: " + e);
 			}
 
-			PrintHandler.printOnLevel(1,"-- RECEIVE LOOP end");
+			// Turn packet into a segment
+			RDTSegment segRcv = new RDTSegment();
+			makeSegment(segRcv, packetReceived.getData());
+
+			// Verify checksum (see if corrupted)
+			int checksumCalc = segRcv.computeChecksum();
+			if (segRcv.checksum != checksumCalc) {
+				PrintHandler.printOnLevel(2,"Packet corrupted");
+				continue;
+			}
+
+//			different behaviour between GBN and SR starts
+
+			// Check for ACK in the segment
+			if (segRcv.containsAck()) {
+				PrintHandler.printOnLevel(2, "- ACK received: ackNum = " + segRcv.ackNum);
+
+				// Slide window up
+				sndBuf.slideWindowACK(segRcv);
+			}
+			else if (segRcv.containsData()) {
+				// Segment is data, send to buffer
+				PrintHandler.printOnLevel(1, "- Data received: seqNum = " + segRcv.seqNum);
+				//rcvBuf.putNext(segRcv);
+
+				// Make an ACK packet
+				RDTSegment segACK = new RDTSegment();
+				segACK.seqNum = segRcv.seqNum;
+				segACK.ackNum = segRcv.ackNum;
+				segACK.flags = RDTSegment.FLAGS_ACK;
+				segACK.length = 0;
+				segACK.rcvWin = 1;
+				segACK.checksum = segACK.computeChecksum();
+
+				// Send the ACK
+				Utility.udp_send(segACK, socket, dst_ip, dst_port);
+			}
+
+			PrintHandler.printOnLevel(2,"-- RECEIVE LOOP end");
 		} // End rcvThread while loop
 
-		PrintHandler.printOnLevel(1,"--- RECEIVE LOOP exit");
+		PrintHandler.printOnLevel(2,"--- RECEIVE LOOP exit");
 
 		// Initiate graceful shutdown here
 
-		PrintHandler.printOnLevel(1, "---- RECEIVE THREAD exit");
+		PrintHandler.printOnLevel(2, "---- RECEIVE THREAD exit");
 		return;
 	}
 

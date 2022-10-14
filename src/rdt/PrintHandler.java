@@ -2,10 +2,10 @@ package rdt;
 
 public class PrintHandler {
 
-    static int printLevel = 0;
+    private static int printLevel = 1;
 
-    final static int printLevelMax = 5;
-    final static int printLevelMin = 0;
+    private final static int printLevelMax = 5;
+    private final static int printLevelMin = 0;
 
     public static void printOnLevel(int level, String x) {
         if (level <= printLevel) {

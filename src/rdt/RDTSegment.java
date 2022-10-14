@@ -45,12 +45,12 @@ public class RDTSegment {
 	
 	public boolean containsAck() {
 		// complete
-		return true;
+		return flags == FLAGS_ACK;
 	}
 	
 	public boolean containsData() {
 		// complete
-		return true;
+		return length > 0;
 	}
 
 	public int computeChecksum() {
