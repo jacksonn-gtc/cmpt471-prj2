@@ -84,7 +84,7 @@ public class RDT {
 		int count = 0;
 		//while (count < size) {
 		for (int j=0; j<num_segments; j++) {
-			System.out.println("count: " + count);
+			PrintHandler.printOnLevel(2,"count: " + count);
 			data_length = (size-count) < MSS ? (size-count) : MSS;	// if size < MSS, only copy that amount of data
 
 			// Create segment
@@ -105,7 +105,7 @@ public class RDT {
 			seg.checksum = seg.computeChecksum();
 
 			// Add the segment to the sndBuf
-			System.out.println("Putting seqNum " + seg.seqNum + " in sndBuf");
+			PrintHandler.printOnLevel(2,"Putting seqNum " + seg.seqNum + " in sndBuf");
 			sndBuf.putNext(seg);
 		}
 
@@ -189,7 +189,7 @@ class RDTBuffer {
 		RDTSegment seg = null;
 
 		if (base != next) {
-			System.out.println("base: " + base + ", next: " + next);
+			PrintHandler.printOnLevel(2,"base: " + base + ", next: " + next);
 			// **** Complete
 			try {
 				semMutex.acquire();
@@ -274,34 +274,34 @@ class ReceiverThread extends Thread {
 
 			// Receive data
 			try {
-				System.out.println("- Calling receive()");
+				PrintHandler.printOnLevel(2,"- Calling receive()");
 				socket.receive(packetReceived);
 			} catch (SocketTimeoutException sto) {
-				System.out.println("-- RECEIVE LOOP Socket Timeout: " + sto);
+				PrintHandler.printOnLevel(2,"-- RECEIVE LOOP Socket Timeout: " + sto);
 
 				// Check for an interrupt
 				if(Thread.currentThread().isInterrupted()) {
-					System.out.println("- Thread interrupted: return to top of loop");
-					System.out.println("- endLoop: " + endLoop);
+					PrintHandler.printOnLevel(2,"- Thread interrupted: return to top of loop");
+					PrintHandler.printOnLevel(2,"- endLoop: " + endLoop);
 					continue;
 				}
 			} catch (IOException e) {
 				System.out.println("-- RECEIVE LOOP IOException: " + e);
 			}
 
-			System.out.println("-- RECEIVE LOOP end");
+			PrintHandler.printOnLevel(1,"-- RECEIVE LOOP end");
 		} // End rcvThread while loop
 
-		System.out.println("--- RECEIVE LOOP exit");
+		PrintHandler.printOnLevel(1,"--- RECEIVE LOOP exit");
 
 		// Initiate graceful shutdown here
 
-		System.out.println("---- RECEIVE THREAD exit");
+		PrintHandler.printOnLevel(1, "---- RECEIVE THREAD exit");
 		return;
 	}
 
 	public void stopReceiving() {
-		System.out.println("--- stopReceiving()");
+		PrintHandler.printOnLevel(0,"--- stopReceiving()");
 		endLoop = true;
 	}
 

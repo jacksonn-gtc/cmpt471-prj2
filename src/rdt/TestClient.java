@@ -7,6 +7,8 @@ package rdt;
 
 public class TestClient {
 
+	static int data_size = 110;
+
 	/**
 	 * 
 	 */
@@ -30,7 +32,7 @@ public class TestClient {
 		RDT.setLossRate(0.4);
 
 		byte[] buf = new byte[RDT.MSS];
-		byte[] data = new byte[10];
+		byte[] data = new byte[data_size];
 
 		sendData(rdt, data, (byte) 0);
 //		sendData(rdt, data, (byte) 1);
@@ -48,9 +50,9 @@ public class TestClient {
 
 	public static void sendData(RDT rdt, byte[] data, byte value) {
 		System.out.println("Sending " + value + "...");
-		for (int i=0; i<10; i++)
+		for (int i=0; i<data_size; i++)
 			data[i] = value;
-		rdt.send(data, 10);
+		rdt.send(data, data_size);
 	}
 
 }
