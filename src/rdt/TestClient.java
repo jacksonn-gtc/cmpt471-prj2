@@ -37,10 +37,10 @@ public class TestClient {
 		byte[] data = new byte[data_size];
 
 		sendData(rdt, data, (byte) 0);
-//		sendData(rdt, data, (byte) 1);
-//		sendData(rdt, data, (byte) 2);
-//		sendData(rdt, data, (byte) 3);
-//		sendData(rdt, data, (byte) 4);
+		sendData(rdt, data, (byte) 1);
+		sendData(rdt, data, (byte) 2);
+		sendData(rdt, data, (byte) 3);
+		sendData(rdt, data, (byte) 4);
 
 		System.out.println(System.currentTimeMillis() + ":Client has sent all data " );
 		System.out.flush();

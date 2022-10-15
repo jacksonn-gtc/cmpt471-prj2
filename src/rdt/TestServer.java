@@ -33,8 +33,14 @@ public class TestServer {
 	     
 	     while (true) {
 	    	 int size = rdt.receive(buf, RDT.MSS);
-	    	 for (int i=0; i<size; i++)
-	    		 System.out.print(buf[i]);
+
+			 if (size > 0) {
+				 System.out.println("DATA ACQUIRED");
+				 for (int i=0; i<size; i++)
+					 System.out.print(buf[i]);
+				 System.out.println();
+			 }
+
 //	    	 System.out.println(" ");
 //	    	 System.out.flush();
 	     } 
