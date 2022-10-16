@@ -7,7 +7,7 @@ package rdt;
 
 public class TestClient {
 
-	static int data_size = 1100;
+	static int data_size = 1110;
 
 	/**
 	 * 
@@ -31,7 +31,7 @@ public class TestClient {
 		int local_port = Integer.parseInt(args[2]);
 
 		RDT rdt = new RDT(hostname, dst_port, local_port, 5, 3);
-		RDT.setLossRate(0.8);
+		RDT.setLossRate(0.0);
 
 		byte[] buf = new byte[RDT.MSS];
 		byte[] data = new byte[data_size];

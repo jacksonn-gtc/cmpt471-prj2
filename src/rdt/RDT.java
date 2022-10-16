@@ -148,11 +148,13 @@ public class RDT {
 				seg = segArray[j];
 				seg.timeoutHandler = new TimeoutHandler(sndBuf, seg, socket, dst_ip, dst_port);
 				sndBuf.putNext(seg);
-				Utility.udp_send(seg, socket, dst_ip, dst_port);
 
+				// If there's no other packets, reset the timer here
 				if (sndBuf.numNotAcked() == 1) {
 					timer.schedule(seg.timeoutHandler, RTO);
 				}
+
+				Utility.udp_send(seg, socket, dst_ip, dst_port);
 			}
 		}
 		else {
@@ -411,7 +413,12 @@ class ReceiverThread extends Thread {
 		endLoop = false;
 
 		segACK = new RDTSegment();
-		updateACK();
+		segACK.seqNum = -1;
+		segACK.ackNum = -1;
+		segACK.flags = RDTSegment.FLAGS_ACK;
+		segACK.length = 0;
+		segACK.rcvWin = 1;
+		segACK.checksum = segACK.computeChecksum();
 	}	
 	public void run() {
 		
@@ -499,6 +506,7 @@ class ReceiverThread extends Thread {
 
 				// Segment is data, send to buffer
 				PrintHandler.printOnLevel(1, "- Data received: seqNum = " + segRcv.seqNum);
+				PrintHandler.printOnLevel(1, "- Next expected sequence num = " + next_expected_seq);
 
 				if (segRcv.seqNum == next_expected_seq) {
 					rcvBuf.putNext(segRcv);
