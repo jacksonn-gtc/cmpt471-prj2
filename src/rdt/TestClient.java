@@ -7,7 +7,7 @@ package rdt;
 
 public class TestClient {
 
-	static int data_size = 10;
+	static int data_size = 1100;
 
 	/**
 	 * 
@@ -30,24 +30,24 @@ public class TestClient {
 		int dst_port = Integer.parseInt(args[1]);
 		int local_port = Integer.parseInt(args[2]);
 
-		RDT rdt = new RDT(hostname, dst_port, local_port, 1, 3);
-		RDT.setLossRate(0.0);
+		RDT rdt = new RDT(hostname, dst_port, local_port, 5, 3);
+		RDT.setLossRate(0.8);
 
 		byte[] buf = new byte[RDT.MSS];
 		byte[] data = new byte[data_size];
 
 		sendData(rdt, data, (byte) 0);
-		sendData(rdt, data, (byte) 1);
-		sendData(rdt, data, (byte) 2);
-		sendData(rdt, data, (byte) 3);
-		sendData(rdt, data, (byte) 4);
+//		sendData(rdt, data, (byte) 1);
+//		sendData(rdt, data, (byte) 2);
+//		sendData(rdt, data, (byte) 3);
+//		sendData(rdt, data, (byte) 4);
 
 		System.out.println(System.currentTimeMillis() + ":Client has sent all data " );
 		System.out.flush();
 
-		rdt.receive(buf, RDT.MSS);
-		System.out.println("Closing connection... " );
-		rdt.close();
+//		rdt.receive(buf, RDT.MSS);
+//		System.out.println("Closing connection... " );
+//		rdt.close();
 		System.out.println("Client is done " );
 	}
 
