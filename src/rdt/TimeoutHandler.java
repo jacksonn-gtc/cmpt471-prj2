@@ -70,9 +70,10 @@ class TimeoutHandler extends TimerTask {
 				break;
 			case RDT.SR:
 				// Resend this segment, and schedule a new timer
-				seg.timeoutHandler = new TimeoutHandler(sndBuf, seg, socket, ip, port);
-				RDT.timer.schedule(seg.timeoutHandler, RDT.RTO);
-				Utility.udp_send(seg, socket, ip, port);
+				RDTSegment segResend = sndBuf.getSeqNum(seg);
+				segResend.timeoutHandler = new TimeoutHandler(sndBuf, segResend, socket, ip, port);
+				RDT.timer.schedule(segResend.timeoutHandler, RDT.RTO);
+				Utility.udp_send(segResend, socket, ip, port);
 
 				break;
 			default:

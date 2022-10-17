@@ -258,8 +258,6 @@ class RDTBuffer {
 	public RDTSegment getNext() {
 		RDTSegment seg = null;
 
-//		PrintHandler.printOnLevel(1,"base: " + base + ", next: " + next);
-		// **** Complete
 		try {
 			semMutex.acquire();
 				seg = buf[base%size];
@@ -272,10 +270,10 @@ class RDTBuffer {
 	}
 
 	// return the next in-order segment and slide the window
+	// Used by the GBN Receiver to take data up to App
 	public RDTSegment getNextAndSlide() {
 		RDTSegment seg = null;
 
-		// **** Complete
 		try {
 			semFull.acquire();
 			semMutex.acquire();
@@ -291,10 +289,10 @@ class RDTBuffer {
 	}
 
 	// Obtain the next segment only if it has been acknowledged
+	// Used by the SR Receiver to take data up to App
 	public RDTSegment getNextAndSlide_SR() {
 		RDTSegment seg = null;
 
-		// **** Complete
 		try {
 			semFull.acquire();
 			semMutex.acquire();
@@ -314,6 +312,7 @@ class RDTBuffer {
 
 
 	// Return the segment at the index, where 0 is the lowest segment number not ACKed.
+	// Used by the TimeoutHandler to resend GBN packets
 	public RDTSegment getSegAt(int index) {
 		RDTSegment seg = null;
 		int q_idx = base + index;
@@ -334,7 +333,7 @@ class RDTBuffer {
 	}
 	
 	// Put a segment in the *right* slot based on seg.seqNum
-	// used by receiver in Selective Repeat
+	// Used by SR Receiver to put data in the rcvBuf
 	public void putSeqNum (RDTSegment seg) {
 		// ***** compelte
 		try {
@@ -349,6 +348,8 @@ class RDTBuffer {
 		}
 	}
 
+	// Obtain the right segment based on the seg.seqNum
+	// Used by the SR Receiver to handle ACKing and TimeoutHandler to resend SR segments
 	public RDTSegment getSeqNum(RDTSegment seg) {
 		RDTSegment segGet = null;
 
@@ -363,28 +364,15 @@ class RDTBuffer {
 		return segGet;
 	}
 
-	// Slides the window by 1
-	public void slideWindowUp() {
-		try {
-			semFull.acquire();
-			semMutex.acquire();
-				base++;
-			semMutex.release();
-			semEmpty.release();
-		} catch (InterruptedException e) {
-			System.out.println("slideWindowUp: " + e);
-		}
-	}
-
 	// Slides the window according to the segment ACK
-	public void slideWindowACK(RDTSegment seg) {
+	// Used by the GBN Sender to slide the sndBuf
+	public void slideWindow_GBN(RDTSegment seg) {
 		// If we get ACK for already ACKed segment, ignore it
 		if (seg.ackNum < base) {
 			return;
 		}
 
 		try {
-//			base = seg.ackNum+1;
 			for (int i=base; i<seg.ackNum+1; i++) {
 				semFull.acquire();
 				semMutex.acquire();
@@ -392,24 +380,21 @@ class RDTBuffer {
 				semMutex.release();
 				semEmpty.release();
 			}
-//			base++;
-//			semFull.acquire();
-//			semMutex.acquire();
-//				base = seg.ackNum+1;
-//			semMutex.release();
-//			semEmpty.release();
 		} catch (InterruptedException e) {
 			System.out.println("slideWindowACK: " + e);
 		}
 	}
 
 	// Slides the window according to the segment ACK
+	// Used by the SR Sender to slide the sndBuf
 	public void slideWindow_SR() {
 		// Slide the window until we hit oldest not ACKed
-		for (int i=base; buf[i%size].ackReceived; i++) {
+		while(buf[base%size].ackReceived) {
 			try {
 				semFull.acquire();
 				semMutex.acquire();
+//					System.out.printf("*- Segment: %d, base: %d\n", buf[base%size].seqNum, base);
+					buf[base%size].ackReceived = false;	// Ensure our loop will end eventually
 					base++;
 				semMutex.release();
 				semEmpty.release();
@@ -432,6 +417,7 @@ class RDTBuffer {
 		return emptyWindow;
 	}
 
+	// Used by the SR Receiver to check for new data in the rcvBuf
 	public boolean isNewData(RDTSegment seg) {
 		// If data doesn't fit in the window, ignore it
 		if (!isSegInRange(seg)) {
@@ -449,6 +435,7 @@ class RDTBuffer {
 		return segBuf.seqNum != seg.seqNum;
 	}
 
+	//
 	public boolean isSegInRange(RDTSegment seg) {
 		return seg.seqNum >= base && seg.seqNum < (base+size);
 	}
@@ -467,6 +454,7 @@ class RDTBuffer {
 		return numNotAcked;
 	}
 
+	//
 	public void stopAllTimers() {
 		for (int i=0; i<(next-base); i++) {
 			buf[i].timeoutHandler.cancel();
@@ -563,7 +551,7 @@ class ReceiverThread extends Thread {
 					segOldest.timeoutHandler.cancel();
 
 					// Slide window up
-					sndBuf.slideWindowACK(segRcv);
+					sndBuf.slideWindow_GBN(segRcv);
 
 					// Place a new timer on the oldest segment not ACKed
 					if (!sndBuf.isEmptyWindow()) {
