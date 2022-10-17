@@ -30,7 +30,7 @@ public class TestClient {
 		int dst_port = Integer.parseInt(args[1]);
 		int local_port = Integer.parseInt(args[2]);
 
-		RDT rdt = new RDT(hostname, dst_port, local_port, 5, 3);
+		RDT rdt = new RDT(hostname, dst_port, local_port, 5, 3, 2);
 		RDT.setLossRate(0.0);
 
 		byte[] buf = new byte[RDT.MSS];

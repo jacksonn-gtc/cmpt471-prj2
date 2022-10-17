@@ -10,6 +10,7 @@ import java.net.*;
 public class Utility {
 	
 	public static final int MAX_NETWORK_DELAY = 200; // msec
+	public static boolean corruption = false;  // corruption flag
 	
 	public static void udp_send (RDTSegment seg, DatagramSocket socket, 
 			InetAddress ip, int port) {

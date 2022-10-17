@@ -54,6 +54,9 @@ public class RDTSegment {
 
 	public int computeChecksum() {
 		// complete
+
+
+
 		return 0;
 	}
 	public boolean isValid() {
