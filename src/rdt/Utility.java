@@ -26,8 +26,15 @@ public class Utility {
 		int payloadSize = seg.length + RDTSegment.HDR_SIZE;
 		byte[] payload = new byte[payloadSize];
 		seg.makePayload(payload);
-	
+
 		// corrupt some bits
+		if (corruption == true)
+		{
+			payload[Math.min(1, payload.length-1)] += 3;
+			payload[Math.min(16, payload.length-1)] += 3;
+			payload[Math.min(25, payload.length-1)] += 3;
+			payload[Math.min(32, payload.length-1)] += 3;
+		}
 		
 		// send over udp
 		// simulate random network delay
@@ -104,5 +111,21 @@ public class Utility {
 		intValue |= intTmp;
 		//System.out.println(" byteToInt: " + intValue + "  " + intTmp);
 		return intValue;
-	}		
+	}
+
+	// Java does not support subarray, we have to make explicit copy
+	public static byte[] subArray(byte[] orig, int index ,int length )
+	{
+		byte[] temp = null ;
+		if (index < orig.length)
+		{
+			length = Math.min(length, orig.length - index );
+			temp = new byte[length] ;
+			for(int i = 0 ;i < length ;i++ )
+			{
+				temp[i] = orig[index + i] ;
+			}
+		}
+		return temp;
+	}
 }

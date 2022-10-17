@@ -20,7 +20,7 @@ public class RDT {
 	public static final int MAX_BUF_SIZE = 3;  
 	public static final int GBN = 1;   // Go back N protocol
 	public static final int SR = 2;    // Selective Repeat
-	public static int protocol = SR;
+	public static int protocol = GBN;
 	
 	public static double lossRate = 0.0;
 	public static Random random = new Random(); 
@@ -181,7 +181,7 @@ public class RDT {
 		switch(protocol) {
 			case(GBN):
 				// Go-Back-N
-				seg = rcvBuf.getNextAndSlide();
+				seg = rcvBuf.getNextAndSlide_GBN();
 				break;
 			case(SR):
 				// Selective Repeat
@@ -271,7 +271,7 @@ class RDTBuffer {
 
 	// return the next in-order segment and slide the window
 	// Used by the GBN Receiver to take data up to App
-	public RDTSegment getNextAndSlide() {
+	public RDTSegment getNextAndSlide_GBN() {
 		RDTSegment seg = null;
 
 		try {
@@ -282,7 +282,7 @@ class RDTBuffer {
 			semMutex.release();
 			semEmpty.release();
 		} catch(InterruptedException e) {
-			System.out.println("getNextAndSlide: " + e);
+			System.out.println("getNextAndSlide_GBN: " + e);
 		}
 
 		return seg;
@@ -381,7 +381,7 @@ class RDTBuffer {
 				semEmpty.release();
 			}
 		} catch (InterruptedException e) {
-			System.out.println("slideWindowACK: " + e);
+			System.out.println("slideWindow_GBN: " + e);
 		}
 	}
 
@@ -435,7 +435,6 @@ class RDTBuffer {
 		return segBuf.seqNum != seg.seqNum;
 	}
 
-	//
 	public boolean isSegInRange(RDTSegment seg) {
 		return seg.seqNum >= base && seg.seqNum < (base+size);
 	}
@@ -454,7 +453,6 @@ class RDTBuffer {
 		return numNotAcked;
 	}
 
-	//
 	public void stopAllTimers() {
 		for (int i=0; i<(next-base); i++) {
 			buf[i].timeoutHandler.cancel();
@@ -491,8 +489,8 @@ class ReceiverThread extends Thread {
 		endLoop = false;
 
 		segACK = new RDTSegment();
-		segACK.seqNum = -1;
-		segACK.ackNum = -1;
+		segACK.seqNum = 0;
+		segACK.ackNum = 0;
 		segACK.flags = RDTSegment.FLAGS_ACK;
 		segACK.length = 0;
 		segACK.rcvWin = 1;
@@ -528,9 +526,10 @@ class ReceiverThread extends Thread {
 			makeSegment(segRcv, packetReceived.getData());
 
 			// Verify checksum (see if corrupted)
-			int checksumCalc = segRcv.computeChecksum();
-			if (segRcv.checksum != checksumCalc) {
-				PrintHandler.printOnLevel(2,"Packet corrupted");
+			if (segRcv.checksum != segRcv.computeChecksum()) {
+//				segRcv.printHeader();
+//				System.out.printf("segRcv.checksum: %d, segRcv.computeChecksum(): %d\n", segRcv.checksum, segRcv.computeChecksum());
+				PrintHandler.printOnLevel(2,"- Packet corrupted");
 				continue;
 			}
 
@@ -556,10 +555,10 @@ class ReceiverThread extends Thread {
 					// Place a new timer on the oldest segment not ACKed
 					if (!sndBuf.isEmptyWindow()) {
 						RDTSegment segNextToAck = sndBuf.getNext();
-						TimeoutHandler timeoutHandler = new TimeoutHandler(sndBuf, segNextToAck, socket, dst_ip, dst_port, sndBuf.numNotAcked());
+						TimeoutHandler timeoutHandler = new TimeoutHandler(sndBuf, segNextToAck, socket, dst_ip, dst_port);
 						segNextToAck.timeoutHandler = timeoutHandler;
 
-						PrintHandler.printOnLevel(1, "- Resetting the timer on segment: " + segNextToAck.seqNum);
+						PrintHandler.printOnLevel(2, "- Resetting the timer on segment: " + segNextToAck.seqNum);
 
 						// Schedule the timer
 						RDT.timer.schedule(timeoutHandler, RDT.RTO);
@@ -572,8 +571,6 @@ class ReceiverThread extends Thread {
 					RDTSegment segACKed = sndBuf.getSeqNum(segRcv);
 					if (segACKed == null)
 						continue;
-
-//					segACKed.printHeader();
 
 					// Cancel the timer
 					segACKed.timeoutHandler.cancel();
@@ -685,7 +682,7 @@ class ReceiverThread extends Thread {
 		seg.flags = RDTSegment.FLAGS_ACK;
 		seg.length = 0;
 		seg.rcvWin = 1;
-		seg.checksum = segACK.computeChecksum();
+		seg.checksum = seg.computeChecksum();
 
 		return seg;
 	}

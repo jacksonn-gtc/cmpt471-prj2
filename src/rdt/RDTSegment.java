@@ -52,12 +52,26 @@ public class RDTSegment {
 		return length > 0;
 	}
 
+	// Algorithm is based on RFC 791, Section 3.1. Internet Header Format: Header Checksum
+	// https://www.rfc-editor.org/rfc/rfc791
 	public int computeChecksum() {
 		// complete
 
+		// Take one's complement (inverse) of all header values
+		int seqNum1C = seqNum ^ 0xffffffff;
+		int ackNum1C = ackNum ^ 0xffffffff;
+		int flags1C = flags ^ 0xffffffff;
+		int rcvWin1C = rcvWin ^ 0xffffffff;
+		int length1C = length ^ 0xffffffff;
+		int checksum1C = 0 ^ 0xffffffff;
 
+		// Take the sum of all one's complement values
+		int sum = seqNum1C + ackNum1C + flags1C + rcvWin1C + length1C + checksum1C;
 
-		return 0;
+		// Take the one's complement of the sum
+		int sum1C = sum ^ 0xffffffff;
+
+		return sum1C;
 	}
 	public boolean isValid() {
 		// complete

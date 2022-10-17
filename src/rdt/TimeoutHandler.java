@@ -15,7 +15,6 @@ class TimeoutHandler extends TimerTask {
 	DatagramSocket socket;
 	InetAddress ip;
 	int port;
-	int num_segments = 0;
 	
 	TimeoutHandler (RDTBuffer sndBuf_, RDTSegment s, DatagramSocket sock, 
 			InetAddress ip_addr, int p) {
@@ -24,20 +23,6 @@ class TimeoutHandler extends TimerTask {
 		socket = sock;
 		ip = ip_addr;
 		port = p;
-	}
-
-	TimeoutHandler (RDTBuffer sndBuf_, RDTSegment s, DatagramSocket sock,
-					InetAddress ip_addr, int p, int num) {
-		sndBuf = sndBuf_;
-		seg = s;
-		socket = sock;
-		ip = ip_addr;
-		port = p;
-		num_segments = num;
-	}
-
-	public void setNumPackets(int num) {
-		num_segments = num;
 	}
 	
 	public void run() {
@@ -62,7 +47,8 @@ class TimeoutHandler extends TimerTask {
 				Utility.udp_send(segCurr, socket, ip, port);
 
 				// Send the rest
-				for (int i=1; i<sndBuf.numNotAcked(); i++) {
+				int numNotAcked = sndBuf.numNotAcked();
+				for (int i=1; i<numNotAcked; i++) {
 					segCurr = sndBuf.getSegAt(i);
 					Utility.udp_send(segCurr, socket, ip, port);
 				}

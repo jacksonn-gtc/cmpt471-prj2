@@ -2,7 +2,7 @@ package rdt;
 
 public class PrintHandler {
 
-    private static int printLevel = 1;
+    private static int printLevel = 0;
 
     private final static int printLevelMax = 5;
     private final static int printLevelMin = 0;
